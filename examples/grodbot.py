@@ -93,12 +93,13 @@ class GrodBot(pb.Agent):
             action = self.high_kick(game)
         elif isinstance(proc, p.Touchback):
             action = self.touchback(game)
-        elif isinstance(proc, p.Turn) and proc.quick_snap:
-            action = self.quick_snap(game)
-        elif isinstance(proc, p.Turn) and proc.blitz:
-            action = self.blitz(game)
         elif isinstance(proc, p.Turn):
-            action = self.turn(game)
+            if proc.quick_snap:
+                action = self.quick_snap(game)
+            elif proc.blitz:
+                action = self.blitz(game)
+            else:
+                action = self.turn(game)
         elif isinstance(proc, p.PlayerAction):
             action = self.player_action(game)
         elif isinstance(proc, p.Block):
@@ -637,7 +638,7 @@ def block_favourability(block_result: m.ActionType, team: m.Team, active_player:
 def potential_end_player_turn_action(game: g.Game, heat_map, player: m.Player) -> List[ActionSequence]:
     actions: List[ActionSequence] = []
     action_steps: List[m.Action] = [
-        m.Action(t.ActionType.END_PLAYER_TURN, player=player)
+        m.Action(t.ActionType.END_PLAYER_TURN)
         ]
     # End turn happens on a score of 1.0.  Any actions with a lower score are never selected.
     actions.append(ActionSequence(action_steps, score=1.0, description='End Turn'))
@@ -665,8 +666,8 @@ def potential_block_actions(game: g.Game, heat_map: helper.FfHeatMap, player: m.
     for blockable_player in blockable_players:
         action_steps: List[m.Action] = [
             m.Action(t.ActionType.START_BLOCK, player=player),
-            m.Action(t.ActionType.BLOCK, position=blockable_player.position, player=player),
-            m.Action(t.ActionType.END_PLAYER_TURN, player=player)
+            m.Action(t.ActionType.BLOCK, position=blockable_player.position),
+            m.Action(t.ActionType.END_PLAYER_TURN)
         ]
 
         action_score = score_block(game, heat_map, player, blockable_player)
@@ -688,12 +689,12 @@ def potential_blitz_actions(game: g.Game, heat_map: helper.FfHeatMap, player: m.
             action_steps: List[m.Action] = []
             action_steps.append(m.Action(t.ActionType.START_BLITZ, player=player))
             if not player.state.up:
-                action_steps.append(m.Action(t.ActionType.STAND_UP, player=player))
+                action_steps.append(m.Action(t.ActionType.STAND_UP))
             for step in path_steps:
                 # Note we need to add 1 to x and y because the outermost layer of squares is not actually reachable
                 action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y), player=player))
-            action_steps.append(m.Action(t.ActionType.BLOCK, position=blockable_square, player=player))
-            # action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN, player=player))
+            action_steps.append(m.Action(t.ActionType.BLOCK, position=blockable_square))
+            # action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN))
 
             action_score = score_blitz(game, heat_map, player, end_square, game.get_player_at(blockable_square))
             path_score = path_cost_to_score(path)  # If an extra GFI required for block, should increase here.  To do.
@@ -718,12 +719,12 @@ def potential_pass_actions(game: g.Game, heat_map: helper.FfHeatMap, player: m.P
             receiver: Optional[m.Player] = game.get_player_at(to_square)
 
             if not player.state.up:
-                action_steps.append(m.Action(t.ActionType.STAND_UP, player=player))
+                action_steps.append(m.Action(t.ActionType.STAND_UP))
             for step in path_steps:
                 # Note we need to add 1 to x and y because the outermost layer of squares is not actually reachable
-                action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y), player=player))
-            action_steps.append(m.Action(t.ActionType.PASS, position=to_square, player=player))
-            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN, player=player))
+                action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y)))
+            action_steps.append(m.Action(t.ActionType.PASS, position=to_square))
+            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN))
 
             action_score = score_pass(game, heat_map, player, end_square, to_square)
             path_score = path_cost_to_score(path)  # If an extra GFI required for block, should increase here.  To do.
@@ -745,9 +746,9 @@ def potential_handoff_actions(game: g.Game, heat_map: helper.FfHeatMap, player: 
             action_steps.append(m.Action(t.ActionType.START_HANDOFF, player=player))
             for step in path_steps:
                 # Note we need to add 1 to x and y because the outermost layer of squares is not actually reachable
-                action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y), player=player))
-            action_steps.append(m.Action(t.ActionType.HANDOFF, position=handoffable_player.position, player=player))
-            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN, player=player))
+                action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y)))
+            action_steps.append(m.Action(t.ActionType.HANDOFF, position=handoffable_player.position))
+            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN))
 
             action_score = score_handoff(game, heat_map, player, handoffable_player, end_square)
             path_score = path_cost_to_score(path)  # If an extra GFI required for block, should increase here.  To do.
@@ -768,12 +769,12 @@ def potential_foul_actions(game: g.Game, heat_map: helper.FfHeatMap, player: m.P
             action_steps: List[m.Action] = []
             action_steps.append(m.Action(t.ActionType.START_FOUL, player=player))
             if not player.state.up:
-                action_steps.append(m.Action(t.ActionType.STAND_UP, player=player))
+                action_steps.append(m.Action(t.ActionType.STAND_UP))
             for step in path_steps:
                 # Note we need to add 1 to x and y because the outermost layer of squares is not actually reachable
                 action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y)))
-            action_steps.append(m.Action(t.ActionType.FOUL, foulable_player.position, player=player))
-            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN, player=player))
+            action_steps.append(m.Action(t.ActionType.FOUL, foulable_player.position))
+            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN))
 
             action_score = score_foul(game, heat_map, player, foulable_player, end_square)
             path_score = path_cost_to_score(path)  # If an extra GFI required for block, should increase here.  To do.
@@ -794,15 +795,15 @@ def potential_move_actions(game: g.Game, heat_map: helper.FfHeatMap, player: m.P
         if not is_continuation:
             action_steps.append(m.Action(t.ActionType.START_MOVE, player=player))
         if not player.state.up:
-            action_steps.append(m.Action(t.ActionType.STAND_UP, player=player))
+            action_steps.append(m.Action(t.ActionType.STAND_UP))
         for step in path_steps:
             # Note we need to add 1 to x and y because the outermost layer of squares is not actually reachable
-            action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y), player=player))
+            action_steps.append(m.Action(t.ActionType.MOVE, position=game.get_square(step.x, step.y)))
 
         to_square: m.Square = game.get_square(path_steps[-1].x, path_steps[-1].y)
         action_score, is_complete, description = score_move(game, heat_map, player, to_square)
         if is_complete:
-            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN, player=player))
+            action_steps.append(m.Action(t.ActionType.END_PLAYER_TURN))
 
         path_score = path_cost_to_score(path)  # If an extra GFI required for block, should increase here.  To do.
         if is_continuation and path_score > 0:
